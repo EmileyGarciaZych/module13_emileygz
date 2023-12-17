@@ -1,0 +1,193 @@
+---
+title: "module 15"
+author: "Emiley Garcia-Zych"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Module 15. Multiple Regression and ANCOVA
+
+Install these packages in R: {curl}, {ggplot2}, {gridExtra}, {dplyr}, {car}
+
+## Overview 
+
+Multiple linear regression and ANCOVA are pretty straightforward generalizations of the simple linear regression and ANOVA approach that we have considered previously (i.e., Model I regressions with our parameters estimated using the criterion of OLS). In multiple linear regression and ANCOVA, we are looking to model a response variable in terms of more than one predictor variable so we can evaluate the effects of several different explanatory variables. When we do multiple linear regression, we are, essentially, looking at the relationship between each of two or more continuous predictor variables and a continuous response variable while holding the effect of all other predictor variables constant. When we do ANCOVA, we are effectively looking at the relationship between one or more continuous predictor variables and a continuous response variable within each of one or more categorical groups.
+
+## Multiple Regression - Continuous Response Variable and More than One Continuous Predictor Variables
+
+```{r}
+R = matrix(cbind(1, 0.8, -0.5, 0, 0.8, 1, -0.3, 0.3, -0.5, -0.3, 1, 0.6, 0,
+    0.3, 0.6, 1), nrow = 4)
+```
+
+```{r}
+n <- 1000
+k <- 4
+M <- NULL
+V <- NULL
+mu <- c(15, 40, 5, 23)  # vector of variable means
+s <- c(5, 20, 4, 15)  # vector of variable SDs
+for (i in 1:k) {
+    V <- rnorm(n, mu[i], s[i])
+    M <- cbind(M, V)
+}
+M <- matrix(M, nrow = n, ncol = k)
+orig <- as.data.frame(M)
+names(orig) = c("Y", "X1", "X2", "X3")
+head(orig)
+```
+
+```{r}
+cor(orig) 
+plot(orig)  # does quick bivariate plots for each pair of variables; using `pairs(orig)` would do the same
+```
+
+```{r}
+ms <- apply(orig, 2, FUN = "mean")  # returns a vector of means, where we are taking this across dimension 2 of the array 'orig'
+ms
+sds <- apply(orig, 2, FUN = "sd")
+sds
+normalized <- sweep(orig, 2, STATS = ms, FUN = "-")  # 2nd dimension is columns, removing array of means, function = subtract
+normalized <- sweep(normalized, 2, STATS = sds, FUN = "/")  # 2nd dimension is columns, scaling by array of sds, function = divide
+head(normalized)  # now a dataframe of Z scores
+M <- as.matrix(normalized)  # redefine M as our matrix of normalized variables
+```
+
+```{r}
+U = chol(R)
+newM = M %*% U
+new = as.data.frame(newM)
+names(new) = c("Y", "X1", "X2", "X3")
+cor(new)  # note that is correlation matrix is what we are aiming for!
+plot(orig)
+```
+
+```{r}
+plot(new) 
+df <- sweep(new, 2, STATS = sds, FUN = "*")  # scale back out to original mean...
+df <- sweep(df, 2, STATS = ms, FUN = "+")  # and standard deviation
+head(df)
+cor(df)
+plot(df)  # note the change to the axis scales; using `pairs(d)` would produce the same plot
+```
+
+## Challenge 1 
+
+Start off by making some bivariate scatterplots in {ggplot2}. Then, using simple linear regression as implemented with lm(), how does the response variable (Y) vary with each predictor variable (X1, X2, X3)? Are the β1 coefficients significant? How much of the variation in Y does each predictor explain in a simple bivariate linear model?
+
+```{r}
+library(ggplot2)
+require(gridExtra)
+```
+
+```{r}
+g1 <- ggplot(data = df, aes(x = X1, y = Y)) + geom_point() + geom_smooth(method = "lm",
+    formula = y ~ x)
+g2 <- ggplot(data = df, aes(x = X2, y = Y)) + geom_point() + geom_smooth(method = "lm",
+    formula = y ~ x)
+g3 <- ggplot(data = df, aes(x = X3, y = Y)) + geom_point() + geom_smooth(method = "lm",
+    formula = y ~ x)
+grid.arrange(g1, g2, g3, ncol = 3)
+```
+
+```{r}
+m1 <- lm(data = df, formula = Y ~ X1)
+summary(m1)
+m2 <- lm(data = df, formula = Y ~ X2)
+summary(m2)
+m3 <- lm(data = df, formula = Y ~ X3)
+summary(m3)
+```
+
+```{r}
+m <- lm(data = df, formula = Y ~ X1 + X2 + X3)
+coef(m)
+summary(m)
+# let's check if our residuals are random normal...
+plot(fitted(m), residuals(m))
+hist(residuals(m))
+qqnorm(residuals(m))
+```
+
+```{r}
+f <- (summary(m)$r.squared * (nrow(df) - (ncol(df) - 1) - 1))/((1 - summary(m)$r.squared) *
+    (ncol(df) - 1))
+f
+```
+
+## Challenge 2
+
+Load up the "zombies.csv" dataset again and run a linear model of height as a function of both weight and age. Is the overall model significant? Are both predictor variables significant when the other is controlled for?
+
+```{r}
+library(curl)
+```
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall21/zombies.csv")
+z <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(z)
+```
+
+```{r}
+m <- lm(data = z, height ~ weight + age)
+summary(m)
+```
+
+## Challenge 3 
+
+What is the estimated mean height, in inches, for a 29 year old male who has survived the zombie apocalypse?
+
+What is the 95% confidence interval around this mean height?
+
+What is the 95% prediction interval for the individual heights of 29 year old male survivors?
+
+```{r}
+#'weight' not found
+```
+
+Challenge 4 Load in the "KamilarAndCooper.csv"" dataset we have used previously
+
+Reduce the dataset to the following variables: Family, Brain_Size_Female_Mean, Body_mass_female_mean, MeanGroupSize, DayLength_km, HomeRange_km2, and Move
+
+Fit a Model I least squares multiple linear regression model using log(HomeRange_km2) as the response variable and log(Body_mass_female_mean), log(Brain_Size_Female_Mean), MeanGroupSize, and Move as predictor variables, and view a model summary.
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall21/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = TRUE)
+head(d)
+```
+
+```{r}
+d <- select(d, Brain_Size_Female_Mean, Family, Body_mass_female_mean, MeanGroupSize,
+    DayLength_km, HomeRange_km2, Move)
+
+```
+
+```{r}
+m <- lm(data = d, log(HomeRange_km2) ~ log(Body_mass_female_mean) + log(Brain_Size_Female_Mean) +
+    MeanGroupSize + Move)
+summary(m)
+```
+
+```{r}
+plot(m$residuals)
+qqnorm(m$residuals)
+shapiro.test(m$residuals)
+```
+
+```{r}
+m <- lm(data = d, log(HomeRange_km2) ~ log(Body_mass_female_mean) + log(Brain_Size_Female_Mean) +
+    MeanGroupSize)
+summary(m)
+
+plot(m$residuals)
+
+qqnorm(m$residuals)
+
+shapiro.test(m$residuals)  
+```
