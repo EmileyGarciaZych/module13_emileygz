@@ -1,0 +1,237 @@
+---
+title: "emileygz_module13"
+author: "Emiley Garcia-Zych"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Module 13. Elements of Regression Analysis
+
+Emiley Garcia-Zych
+
+```{r}
+#install necessary packages 
+##install.packages("curl")
+##install.packages("car")
+```
+
+```{r}
+library(curl)
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall23/zombies.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+```
+
+```{r}
+m <- lm(data = d, height ~ weight)
+SSY <- sum((m$model$height - mean(m$model$height))^2)  # height - mean(height)
+SSY
+SSR <- sum((m$fitted.values - mean(m$model$height))^2)  # predicted height - mean height
+SSR
+SSE <- sum((m$model$height - m$fitted.values)^2)  # height - predicted height
+SSE
+```
+
+```{r}
+df_regression <- 1
+df_error <- 998
+df_y <- 999
+MSR <- SSR/df_regression
+MSE <- SSE/df_error
+MSY <- SSY/df_y
+```
+
+```{r}
+fratio <- MSR/MSE
+fratio
+```
+
+```{r}
+curve(df(x, df = 1, df2 = 1), col = "green", lty = 3, lwd = 2, xlim = c(0, 10),
+    main = "Some Example F Distributions\n(vertical line shows critical value for df1=1,df2=998)",
+    ylab = "f(x)", xlab = "x")
+curve(df(x, df = 2, df2 = 2), col = "blue", lty = 3, lwd = 2, add = TRUE)
+curve(df(x, df = 4, df2 = 4), col = "red", lty = 3, lwd = 2, add = TRUE)
+curve(df(x, df = 8, df2 = 6), col = "purple", lty = 3, lwd = 2, add = TRUE)
+curve(df(x, df = 1, df2 = 998), col = "black", lwd = 3, add = TRUE)
+legend("top", c("df1=1,df2=1", "df1=2,df2=2", "df1=4,df2=4", "df1=8,df2=6",
+    "df1=1,df2=998"), lty = 3, lwd = 2, col = c("green", "blue", "red", "purple",
+    "black"), bty = "n", cex = 0.75)
+
+fcrit <- qf(p = 0.95, df1 = 1, df2 = 998)
+fcrit
+```
+
+```{r}
+a <- aov(data = d, height ~ weight)
+summary(a)
+```
+
+```{r}
+summary.aov(m)
+```
+
+```{r}
+rsquared <- SSR/SSY
+rsquared
+rho <- sqrt(rsquared)
+rho
+```
+
+```{r}
+SSX <- sum((m$model$weight - mean(m$model$weight))^2)
+SEbeta1 <- sqrt(MSE/SSX)
+SEbeta1
+SEbeta0 <- sqrt((MSE * sum(m$model$weight^2))/(1000 * SSX))
+SEbeta0
+SEyhat <- sqrt(MSE * (1/1000 + (m$model$weight - mean(m$model$weight))^2/SSX))
+head(SEyhat)  # just the first 6 rows
+summary(m)
+```
+
+## Challenge 1
+
+Calculate the residuals from the regression of zombie height on weight and plot these in relation to weight (the **x** variable). There are lots of ways to do this quickly.
+
+```{r}
+m <- lm(data = d, height ~ weight)
+plot(x = d$weight, y = m$residuals)
+
+```
+
+```{r}
+# or
+e <- resid(m)
+plot(x = d$weight, y = e)
+```
+
+```{r}
+hist(e, xlim = c(-4 * sd(e), 4 * sd(e)), breaks = 20, main = "Histogram of Residuals")
+```
+
+```{r}
+plot(m$model$weight, m$residuals)
+```
+
+```{r}
+par(mfrow = c(2, 2))
+```
+
+```{r}
+qqnorm(m$residuals)
+```
+
+```{r}
+library(car)
+qqPlot(m$residuals)
+```
+
+```{r}
+s <- shapiro.test(m$residuals)
+s
+```
+
+## Challenge 2
+
+Load in the \"KamilarAndCooper.csv\" dataset and develop a linear model to look at the relationship between \"weaning age\" and \"female body mass\". You will probably need to look at the data and variable names again to find the appropriate variables to examine.
+
+-   Using the procedures outlined above and in Module 12, calculate estimates of β0 and β1 by hand \***and** using the `lm()` function. Are the regression coefficients estimated under a simple linear model statistically significantly different from zero?
+
+-   Construct an ANOVA table by hand and compare your values to the results of running `lm()`and then looking at `summary.aov(lm())`.
+
+-   Generate the residuals for your linear model by hand, plot them in relation to female body weight, and make a histogram of the residuals. Do they appear to be normally distributed?
+
+-   Run the `plot()` command on the result of `lm()` and examine the 4 plots produced. Again, based on examination of the residuals and the results of Shapiro-Wilks test, does it look like your model has good fit?
+
+```{r}
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall23/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+```
+
+```{r}
+plot(data = d, WeaningAge_d ~ Body_mass_female_mean)
+```
+
+```{r}
+model <- lm(data = d, WeaningAge_d ~ Body_mass_female_mean)
+summary(model)
+```
+
+```{r}
+plot(model)
+```
+
+```{r}
+qqPlot(model$residuals)
+```
+
+```{r}
+s <- shapiro.test(model$residuals)
+s
+```
+
+## Challenge 3
+
+Return to the \"KamilarAndCooper.csv\" dataset you were looking at above and log transform both of your variables and then run a simple bivariate linear model. Do you notice a difference between these results and those obtained using untransformed variables?
+
+```{r}
+d$logWeaningAge <- log(d$WeaningAge_d)
+d$logFemaleBodyMass <- log(d$Body_mass_female_mean)
+plot(data = d, logWeaningAge ~ logFemaleBodyMass)
+```
+
+```{r}
+model <- lm(data = d, logWeaningAge ~ logFemaleBodyMass)
+summary(model)
+plot(model)
+```
+
+```{r}
+s <- shapiro.test(model$residuals)
+s
+```
+
+```{r}
+par(mfrow = c(1, 2))
+
+a <- 2
+b <- 2
+
+# log x
+x <- seq(from = 0, to = 100, length.out = 1000)
+y <- a + b * log(x)
+plot(x, y, type = "l", main = "untransformed")
+plot(log(x), y, type = "l", main = "log(x)")
+```
+
+```{r}
+# log y
+x <- seq(from = 0, to = 10, length.out = 1000)
+y <- exp(a + b * x)
+plot(x, y, type = "l", main = "untransformed")
+plot(x, log(y), type = "l", main = "log(y)")
+```
+
+```{r}
+# assymptotic
+x <- seq(from = 1, to = 100, length.out = 100)
+y <- (a * x)/(1 + b * x)
+plot(x, y, type = "l", main = "untransformed")
+plot(1/x, y, type = "l", main = "1/x")
+```
+
+```{r}
+# reciprocal
+x <- seq(from = 1, to = 100, length.out = 100)
+y <- a + b/x
+plot(x, y, type = "l", main = "untransformed")
+plot(1/x, y, type = "l", main = "1/x")
+```
+
+```{r}
+# exp
+x <- seq(from = 1, to = 10, length.out = 100)
+y <- a * exp(b * x)
+plot(x, y, type = "l", main = "untransformed")
+plot(x, log(y), type = "l", main = "log(y)")
+```
